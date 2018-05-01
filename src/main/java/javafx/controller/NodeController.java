@@ -2,39 +2,73 @@ package javafx.controller;
 
 import app.SoapChat;
 import javafx.CustomMessageBox;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea;
+import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
-import soap.OnlineNode;
+import soap.node.LayerNode;
+import soap.node.Node;
+import soap.node.OnlineNode;
+import soap.node.RouterNode;
 
+import javax.xml.bind.JAXBException;
+import javax.xml.soap.SOAPException;
 import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
+
+import static javafx.scene.input.KeyCode.T;
 
 public class NodeController implements Initializable {
     private CustomMessageBox customMessageBox;
+    private SimpleDateFormat simpleDateFormat;
+    private Node node;
 
     @FXML
-    private Label labelNodeType, labelHostAndPort, labelLayerNumberAndNodeName, labelForwarding;
+    private Label labelNodeType, labelPort, labelLayerNumberAndNodeName, labelForwarding;
 
     @FXML
     private TableView<OnlineNode> tableViewOnlineNodes;
 
     @FXML
-    private TableColumn<OnlineNode, String> tableColumnLayerNumber, tableColumnNodeName, tableColumnNodeType,
-            tableColumnHost;
+    private TableColumn<OnlineNode, String> tableColumnLayerNumberAndNodeName, tableColumnNodeType, tableColumnNextHost;
 
     @FXML
-    private TableColumn<OnlineNode, Integer> tableColumnPort;
+    private TableColumn<OnlineNode, Integer> tableColumnPort, tableColumnNextPort;
 
     @FXML
     private TextArea textAreaNewMessage, textAreaMessages;
 
+    public void setNode(LayerNode layerNode) {
+        node = layerNode;
+
+        labelNodeType.setText("L");
+        labelPort.setText(String.valueOf(node.getPort()));
+        labelLayerNumberAndNodeName.setText(node.getNodeFullName());
+        labelForwarding.setText(node.getNextLayerNodeHost() + ":" + node.getNextLayerNodePort());
+
+        node.startListening();
+    }
+
+    public void setNode(RouterNode routerNode) {
+        this.node = routerNode;
+
+        labelNodeType.setText("R - " + routerNode.getNextRouterNodeHost() + ":" + routerNode.getNextRouterNodePort());
+        labelPort.setText(String.valueOf(node.getPort()));
+        labelLayerNumberAndNodeName.setText(node.getNodeFullName());
+        labelForwarding.setText(node.getNextLayerNodeHost() + ":" + node.getNextLayerNodePort());
+
+        node.startListening();
+    }
 
     public void initialize(URL location, ResourceBundle resources) {
+        simpleDateFormat = new SimpleDateFormat("[HH:mm:ss]");
         customMessageBox = new CustomMessageBox("image/icon.png");
         initTableView();
     }
@@ -50,18 +84,33 @@ public class NodeController implements Initializable {
     }
 
     @FXML
-
     void buttonSendToSelectedNode_onAction() {
-
+        try {
+            node.sendMessage("1", "A", "unicast", textAreaNewMessage.getText());
+            textAreaNewMessage.clear();
+        } catch (SOAPException | JAXBException e) {
+            e.printStackTrace();
+        }
     }
 
-    private void initTableView(){
-        tableColumnLayerNumber.setCellValueFactory(new PropertyValueFactory<>("layerNumber"));
-        tableColumnNodeName.setCellValueFactory(new PropertyValueFactory<>("nodeName"));
-        tableColumnNodeType.setCellValueFactory(new PropertyValueFactory<>("nodeType"));
-        tableColumnHost.setCellValueFactory(new PropertyValueFactory<>("host"));
+    private void initTableView() {
+        tableColumnLayerNumberAndNodeName.setCellValueFactory(new PropertyValueFactory<>("layerNumberAndNodeName"));
         tableColumnPort.setCellValueFactory(new PropertyValueFactory<>("port"));
+        tableColumnNodeType.setCellValueFactory(new PropertyValueFactory<>("nodeType"));
+        tableColumnNextHost.setCellValueFactory(new PropertyValueFactory<>("nextHost"));
+        tableColumnNextPort.setCellValueFactory(new PropertyValueFactory<>("nextPort"));
 
-        tableViewOnlineNodes.setItems(SoapChat.onlineNodeObservableList);
+        tableViewOnlineNodes.setItems(FXCollections.observableArrayList(new ArrayList<>(SoapChat.onlineNodeObservableList)));
+    }
+
+    public void showReceivedMessage(String sender, String message) {
+        String receivedMessage = simpleDateFormat.format(new Date()) + " " + sender + ": " + message;
+        textAreaMessages.appendText(receivedMessage + "\n");
+    }
+
+    public void showWarning(String exceptionMessage) {
+        customMessageBox.showMessageBox(Alert.AlertType.WARNING, "Ostrzeżenie",
+                "Operacja wymiany informacji nie powiodła się.",
+                "Powód: " + exceptionMessage + ".").showAndWait();
     }
 }
