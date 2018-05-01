@@ -11,14 +11,17 @@ import java.io.StringReader;
 import java.io.StringWriter;
 
 public class SoapUtil {
-    public static SOAPMessage createEnvelope(MessageHeader messageHeader, String message) throws SOAPException, JAXBException {
+    public static SOAPMessage createEnvelope(MessageHeader messageHeader, MessageBody messageBody) throws SOAPException, JAXBException {
         SOAPMessage soapMessage = MessageFactory.newInstance().createMessage();
         StringWriter messageHeaderXml = new StringWriter();
         JAXBContext.newInstance(MessageHeader.class).createMarshaller().marshal(messageHeader, messageHeaderXml);
         soapMessage.getSOAPHeader().addChildElement(new QName("head", "messageHeader"))
                 .setTextContent(String.valueOf(messageHeaderXml));
 
-        soapMessage.getSOAPBody().addBodyElement(new QName("message")).setTextContent(message);
+        StringWriter messageBodyXml = new StringWriter();
+        JAXBContext.newInstance(MessageBody.class).createMarshaller().marshal(messageBody, messageBodyXml);
+        soapMessage.getSOAPBody().addBodyElement(new QName( "message"))
+                .setTextContent(String.valueOf(messageBodyXml));
 
         return soapMessage;
     }
@@ -30,8 +33,11 @@ public class SoapUtil {
                 .createUnmarshaller().unmarshal(messageHeaderXml);
     }
 
-    public static String extractMessage(SOAPMessage soapMessage) throws SOAPException {
-        return ((SOAPElement) soapMessage.getSOAPBody().getChildElements(new QName("message")).next()).getTextContent();
+    public static MessageBody extractMessage(SOAPMessage soapMessage) throws SOAPException, JAXBException {
+        StringReader messageBodyXml = new StringReader (((SOAPElement)soapMessage.getSOAPBody()
+                .getChildElements(new QName("message")).next()).getTextContent());
+        return (MessageBody) JAXBContext.newInstance(MessageBody.class)
+                .createUnmarshaller().unmarshal(messageBodyXml);
     }
 
     public static void addPathNode(MessageHeader messageHeader, SOAPMessage soapMessage, String nodeFullName) throws SOAPException, JAXBException {
@@ -40,5 +46,18 @@ public class SoapUtil {
         JAXBContext.newInstance(MessageHeader.class).createMarshaller().marshal(messageHeader, messageHeaderXml);
         soapMessage.getSOAPHeader().addChildElement(new QName("head", "messageHeader"))
                 .setTextContent(String.valueOf(messageHeaderXml));
+    }
+
+    public static void addOnlineNodes(MessageHeader messageHeader, MessageBody messageBody, SOAPMessage soapMessage) throws SOAPException, JAXBException {
+        messageHeader.setVisitedNodes(null);
+        StringWriter messageHeaderXml = new StringWriter();
+        JAXBContext.newInstance(MessageHeader.class).createMarshaller().marshal(messageHeader, messageHeaderXml);
+        soapMessage.getSOAPHeader().addChildElement(new QName("head", "messageHeader"))
+                .setTextContent(String.valueOf(messageHeaderXml));
+
+        StringWriter messageBodyXml = new StringWriter();
+        JAXBContext.newInstance(MessageBody.class).createMarshaller().marshal(messageBody, messageBodyXml);
+        soapMessage.getSOAPBody().addBodyElement(new QName( "message"))
+                .setTextContent(String.valueOf(messageBodyXml));
     }
 }

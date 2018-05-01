@@ -1,6 +1,7 @@
 package soap.node;
 
 import javafx.controller.NodeController;
+import soap.MessageBody;
 import soap.MessageHeader;
 import soap.SoapUtil;
 
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -78,6 +80,7 @@ public abstract class Node {
                         try {
                             SOAPMessage soapMessage = MessageFactory.newInstance().createMessage(null,
                                     clientSocket.getInputStream());
+                            System.out.println("odebralem");
                             this.onSoapMessageReceived(soapMessage);
                             clientSocket.close();
                         } catch (IOException | SOAPException ignored) {
@@ -99,8 +102,8 @@ public abstract class Node {
         this.threadRunning = false;
     }
 
-    public void sendMessage(String receiverLayerNumber, String receiverNodeName, String messageType, String message) throws SOAPException, JAXBException {
-        SOAPMessage soapMessage = SoapUtil.createEnvelope(new MessageHeader(layerNumber, nodeName, receiverLayerNumber, receiverNodeName, messageType), message);
+    public void sendMessage(String receiverLayerNumber, String receiverNodeName, String messageType, MessageBody messageBody) throws SOAPException, JAXBException {
+        SOAPMessage soapMessage = SoapUtil.createEnvelope(new MessageHeader(layerNumber, nodeName, receiverLayerNumber, receiverNodeName, messageType), messageBody);
 
         onSoapMessageReadyToSend(soapMessage);
     }
@@ -120,11 +123,34 @@ public abstract class Node {
         try {
             MessageHeader messageHeader = SoapUtil.extractMessageHeader(soapMessage);
 
+            System.out.println("1");
             if (messageHeader.checkIfVisitedNodesContainsNode(getNodeFullName()))
                 return;
 
-            if (messageHeader.isReceiver(getLayerNumber(), getNodeName()))
-                getNodeController().showReceivedMessage(messageHeader.getSender(), SoapUtil.extractMessage(soapMessage));
+            System.out.println("2");
+            if (messageHeader.isReceiver(getLayerNumber(), getNodeName())){
+                System.out.println("2.5");
+                MessageBody messageBody = SoapUtil.extractMessage(soapMessage);
+                System.out.println("3");
+                if (messageBody.getOnlineNodeSet()==null){
+                    System.out.println("4");
+                    getNodeController().showReceivedMessage(messageHeader.getSender(), messageBody.getMessage());}
+                else {
+                    Set<OnlineNode> onlineNodeSet = nodeController.getOnlineNodes();
+                    onlineNodeSet.addAll(messageBody.getOnlineNodeSet());
+                    if (onlineNodeSet.size()>messageBody.getOnlineNodeSet().size()) {
+                        messageBody.setOnlineNodeSet(onlineNodeSet);
+                        SoapUtil.addOnlineNodes(messageHeader, messageBody, soapMessage);
+                    }
+                    else {
+                        System.out.println("dodanie");
+                        SoapUtil.addPathNode(messageHeader, soapMessage, getNodeFullName());
+                    }
+                    nodeController.setOnlineNodes(messageBody.getOnlineNodeSet());
+                    sendMessage(soapMessage);
+                }
+            }
+            System.out.println("5");
 
             if (messageHeader.isGlobalBroadcast() || messageHeader.isLocalBroadcast() || !messageHeader.isReceiver(getLayerNumber(), getNodeName()))
                 if (messageHeader.checkIfVisitedNodesContainsNode(getNodeFullName())) {

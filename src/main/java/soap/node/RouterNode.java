@@ -48,7 +48,7 @@ public class RouterNode extends Node {
             } else {
                 System.out.println("5");
                 forwardTo(soapMessage, getNextLayerNodeHost(), getNextLayerNodePort());
-                forwardTo(soapMessage, nextRouterNodeHost, nextRouterNodePort);
+              //  forwardTo(soapMessage, nextRouterNodeHost, nextRouterNodePort);
             }
         } catch (SOAPException | IOException | JAXBException e) {
             e.printStackTrace();

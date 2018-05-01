@@ -1,11 +1,23 @@
 package soap.node;
 
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement
+@XmlAccessorType(XmlAccessType.FIELD)
 public class OnlineNode {
-   private String layerNumberAndNodeName;
-   private Integer port;
-   private String nodeType;
-   private String nextHost;
-   private Integer nextPort;
+    @XmlAttribute(name = "layerNumberAndNodeName")
+    private String layerNumberAndNodeName;
+    @XmlAttribute(name = "port")
+    private Integer port;
+    @XmlAttribute(name = "nodeType")
+    private String nodeType;
+    @XmlAttribute(name = "nextHost")
+    private String nextHost;
+    @XmlAttribute(name = "nextPort")
+    private Integer nextPort;
 
     public OnlineNode() {
     }
