@@ -1,9 +1,7 @@
 package soap.node;
 
-import javax.xml.bind.annotation.XmlAccessType;
-import javax.xml.bind.annotation.XmlAccessorType;
-import javax.xml.bind.annotation.XmlAttribute;
-import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.*;
+import java.util.Objects;
 
 @XmlRootElement
 @XmlAccessorType(XmlAccessType.FIELD)
@@ -18,12 +16,19 @@ public class OnlineNode {
     private String nextHost;
     @XmlAttribute(name = "nextPort")
     private Integer nextPort;
+    @XmlAttribute(name = "layerNumber")
+    private String layerNumber;
+    @XmlAttribute(name = "nodeName")
+    private String nodeName;
 
     public OnlineNode() {
     }
 
-    public OnlineNode(String layerNumberAndNodeName, Integer port, String nodeType, String nextHost, Integer nextPort) {
-        this.layerNumberAndNodeName = layerNumberAndNodeName;
+    public OnlineNode(String layerNumber, String nodeName, Integer port, String nodeType, String nextHost,
+                      Integer nextPort) {
+        this.layerNumberAndNodeName = layerNumber + "|" + nodeName;
+        this.layerNumber = layerNumber;
+        this.nodeName = nodeName;
         this.port = port;
         this.nodeType = nodeType;
         this.nextHost = nextHost;
@@ -70,6 +75,22 @@ public class OnlineNode {
         this.nextPort = nextPort;
     }
 
+    public String getLayerNumber() {
+        return layerNumber;
+    }
+
+    public void setLayerNumber(String layerNumber) {
+        this.layerNumber = layerNumber;
+    }
+
+    public String getNodeName() {
+        return nodeName;
+    }
+
+    public void setNodeName(String nodeName) {
+        this.nodeName = nodeName;
+    }
+
     @Override
     public String toString() {
         return "OnlineNode{" +
@@ -78,7 +99,28 @@ public class OnlineNode {
                 ", nodeType='" + nodeType + '\'' +
                 ", nextHost='" + nextHost + '\'' +
                 ", nextPort=" + nextPort +
+                ", layerNumber='" + layerNumber + '\'' +
+                ", nodeName='" + nodeName + '\'' +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        OnlineNode that = (OnlineNode) o;
+        return Objects.equals(layerNumberAndNodeName, that.layerNumberAndNodeName) &&
+                Objects.equals(port, that.port) &&
+                Objects.equals(nodeType, that.nodeType) &&
+                Objects.equals(nextHost, that.nextHost) &&
+                Objects.equals(nextPort, that.nextPort) &&
+                Objects.equals(layerNumber, that.layerNumber) &&
+                Objects.equals(nodeName, that.nodeName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(layerNumberAndNodeName, port, nodeType, nextHost, nextPort, layerNumber, nodeName);
     }
 }
 

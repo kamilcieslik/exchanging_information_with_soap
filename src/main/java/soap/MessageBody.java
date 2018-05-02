@@ -25,17 +25,8 @@ public class MessageBody {
         this.onlineNodeSet = onlineNodeSet;
     }
 
-    public MessageBody(String message, Set<OnlineNode> onlineNodeSet) {
-        this.message = message;
-        this.onlineNodeSet = onlineNodeSet;
-    }
-
     public String getMessage() {
         return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
     }
 
     public Set<OnlineNode> getOnlineNodeSet() {

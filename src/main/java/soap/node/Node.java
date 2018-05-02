@@ -3,7 +3,7 @@ package soap.node;
 import javafx.controller.NodeController;
 import soap.MessageBody;
 import soap.MessageHeader;
-import soap.SoapUtil;
+import soap.Soap;
 
 import javax.xml.bind.JAXBException;
 import javax.xml.soap.MessageFactory;
@@ -12,7 +12,6 @@ import javax.xml.soap.SOAPMessage;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,10 +24,11 @@ public abstract class Node {
     private Integer nextLayerNodePort;
     private String nextLayerNodeHost;
 
-    private volatile boolean threadRunning = true;
+    private volatile boolean listening = true;
     private ServerSocket serverSocket;
 
-    public Node(NodeController nodeController, String layerNumber, String nodeName, Integer port, Integer nextLayerNodePort, String nextLayerNodeHost) {
+    Node(NodeController nodeController, String layerNumber, String nodeName, Integer port, Integer nextLayerNodePort,
+         String nextLayerNodeHost) {
         this.nodeController = nodeController;
         this.layerNumber = layerNumber;
         this.nodeName = nodeName;
@@ -37,7 +37,7 @@ public abstract class Node {
         this.nextLayerNodeHost = nextLayerNodeHost;
     }
 
-    public NodeController getNodeController() {
+    NodeController getNodeController() {
         return nodeController;
     }
 
@@ -67,30 +67,26 @@ public abstract class Node {
 
 
     public void startListening() {
-        final ExecutorService clientProcessingPool = Executors.newFixedThreadPool(10);
-
-        int nodePort = this.port;
+        final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
         Thread thread = new Thread(() -> {
             try {
-                serverSocket = new ServerSocket(nodePort);
-                while (threadRunning) {
+                serverSocket = new ServerSocket(this.port);
+                while (listening) {
                     Socket clientSocket = serverSocket.accept();
-                    clientProcessingPool.submit(() -> {
+                    executorService.submit(() -> {
                         try {
                             SOAPMessage soapMessage = MessageFactory.newInstance().createMessage(null,
                                     clientSocket.getInputStream());
-                            System.out.println("odebralem");
-                            this.onSoapMessageReceived(soapMessage);
+                            onSoapMessageReceived(soapMessage);
                             clientSocket.close();
                         } catch (IOException | SOAPException ignored) {
                         }
-
                     });
                 }
             } catch (IOException ignored) {
             } finally {
-                clientProcessingPool.shutdown();
+                executorService.shutdown();
             }
         });
 
@@ -99,69 +95,73 @@ public abstract class Node {
 
     public void stopListening() throws IOException {
         serverSocket.close();
-        this.threadRunning = false;
+        this.listening = false;
     }
 
-    public void sendMessage(String receiverLayerNumber, String receiverNodeName, String messageType, MessageBody messageBody) throws SOAPException, JAXBException {
-        SOAPMessage soapMessage = SoapUtil.createEnvelope(new MessageHeader(layerNumber, nodeName, receiverLayerNumber, receiverNodeName, messageType), messageBody);
+    public void sendSoapMessage(String receiverLayerNumber, String receiverNodeName, String messageType,
+                                MessageBody messageBody) throws SOAPException, JAXBException {
+        SOAPMessage soapMessage = Soap.createSoapMessage(new MessageHeader(layerNumber, nodeName, receiverLayerNumber,
+                receiverNodeName, messageType), messageBody);
 
-        onSoapMessageReadyToSend(soapMessage);
+        transferSoapMessage(soapMessage);
     }
 
-    public void sendMessage(SOAPMessage soapMessage) throws SOAPException, UnknownHostException, IOException {
-        onSoapMessageReadyToSend(soapMessage);
+    private void sendSoapMessage(SOAPMessage soapMessage) {
+        transferSoapMessage(soapMessage);
     }
 
-    protected void forwardTo(SOAPMessage soapMessage, String host, int port) throws SOAPException, IOException {
-        Socket socket = new Socket(host, port);
-        soapMessage.writeTo(socket.getOutputStream());
-        socket.getOutputStream().flush();
-        socket.close();
-    }
-
-    public void onSoapMessageReceived(SOAPMessage soapMessage) {
+    void forwardSoapMessage(SOAPMessage soapMessage, String host, int port) {
         try {
-            MessageHeader messageHeader = SoapUtil.extractMessageHeader(soapMessage);
+            Socket socket = new Socket(host, port);
+            soapMessage.writeTo(socket.getOutputStream());
+            socket.getOutputStream().flush();
+            socket.close();
+        } catch (Exception ignored) {
+        }
+    }
 
-            System.out.println("1");
+    private void onSoapMessageReceived(SOAPMessage soapMessage) {
+        try {
+            MessageHeader messageHeader = Soap.getMessageHeader(soapMessage);
+
             if (messageHeader.checkIfVisitedNodesContainsNode(getNodeFullName()))
                 return;
 
-            System.out.println("2");
-            if (messageHeader.isReceiver(getLayerNumber(), getNodeName())){
-                System.out.println("2.5");
-                MessageBody messageBody = SoapUtil.extractMessage(soapMessage);
-                System.out.println("3");
-                if (messageBody.getOnlineNodeSet()==null){
-                    System.out.println("4");
-                    getNodeController().showReceivedMessage(messageHeader.getSender(), messageBody.getMessage());}
-                else {
+            if (messageHeader.isReceiver(getLayerNumber(), getNodeName())) {
+                MessageBody messageBody = Soap.getMessageBody(soapMessage);
+
+                if (messageBody.getOnlineNodeSet() == null) {
+                    getNodeController().showReceivedMessage(messageHeader.getSender(), messageBody.getMessage());
+                } else {
                     Set<OnlineNode> onlineNodeSet = nodeController.getOnlineNodes();
                     onlineNodeSet.addAll(messageBody.getOnlineNodeSet());
-                    if (onlineNodeSet.size()>messageBody.getOnlineNodeSet().size()) {
+
+                    if (onlineNodeSet.size() > messageBody.getOnlineNodeSet().size()) {
                         messageBody.setOnlineNodeSet(onlineNodeSet);
-                        SoapUtil.addOnlineNodes(messageHeader, messageBody, soapMessage);
-                    }
-                    else {
-                        System.out.println("dodanie");
-                        SoapUtil.addPathNode(messageHeader, soapMessage, getNodeFullName());
+                        soapMessage = Soap.createSoapMessage(messageHeader, messageBody);
+                        messageHeader.setVisitedNodes(null);
+                    } else {
+                        messageHeader.addVisitedNode(getNodeFullName());
+                        messageBody = Soap.getMessageBody(soapMessage);
+                        soapMessage = Soap.createSoapMessage(messageHeader, messageBody);
                     }
                     nodeController.setOnlineNodes(messageBody.getOnlineNodeSet());
-                    sendMessage(soapMessage);
+                    sendSoapMessage(soapMessage);
                 }
             }
-            System.out.println("5");
 
-            if (messageHeader.isGlobalBroadcast() || messageHeader.isLocalBroadcast() || !messageHeader.isReceiver(getLayerNumber(), getNodeName()))
-                if (messageHeader.checkIfVisitedNodesContainsNode(getNodeFullName())) {
-                    SoapUtil.addPathNode(messageHeader, soapMessage, getNodeFullName());
-                    sendMessage(soapMessage);
+            if (messageHeader.isGlobalBroadcast() || messageHeader.isLocalBroadcast()
+                    || !messageHeader.isReceiver(getLayerNumber(), getNodeName()))
+                if (!messageHeader.checkIfVisitedNodesContainsNode(getNodeFullName())) {
+                    messageHeader.addVisitedNode(getNodeFullName());
+                    MessageBody messageBody = Soap.getMessageBody(soapMessage);
+                    soapMessage = Soap.createSoapMessage(messageHeader, messageBody);
+                    sendSoapMessage(soapMessage);
                 }
-        } catch (SOAPException | IOException | JAXBException e) {
-            e.printStackTrace();
+        } catch (SOAPException | JAXBException e) {
             getNodeController().showWarning(e.getMessage());
         }
     }
 
-    abstract protected void onSoapMessageReadyToSend(SOAPMessage soapMessage);
+    abstract protected void transferSoapMessage(SOAPMessage soapMessage);
 }

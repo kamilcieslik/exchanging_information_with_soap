@@ -2,11 +2,11 @@ package soap.node;
 
 import javafx.controller.NodeController;
 import soap.MessageHeader;
-import soap.SoapUtil;
+import soap.Soap;
+
 import javax.xml.bind.JAXBException;
 import javax.xml.soap.SOAPException;
 import javax.xml.soap.SOAPMessage;
-import java.io.IOException;
 
 public class RouterNode extends Node {
     private Integer nextRouterNodePort;
@@ -29,29 +29,22 @@ public class RouterNode extends Node {
     }
 
     @Override
-    protected void onSoapMessageReadyToSend(SOAPMessage soapMessage) {
+    protected void transferSoapMessage(SOAPMessage soapMessage) {
         try {
-            MessageHeader messageHeader = SoapUtil.extractMessageHeader(soapMessage);
-
+            MessageHeader messageHeader = Soap.getMessageHeader(soapMessage);
             if (messageHeader.isLocalBroadcast() && messageHeader.getReceiverLayerNumber().equals(getLayerNumber())) {
-                System.out.println("1");
-                forwardTo(soapMessage, getNextLayerNodeHost(), getNextLayerNodePort());
+                forwardSoapMessage(soapMessage, getNextLayerNodeHost(), getNextLayerNodePort());
             } else if (messageHeader.isLocalBroadcast()) {
-                System.out.println("2");
-                forwardTo(soapMessage, nextRouterNodeHost, nextRouterNodePort);
+                forwardSoapMessage(soapMessage, nextRouterNodeHost, nextRouterNodePort);
             } else if (messageHeader.isUnicast() && messageHeader.getReceiverLayerNumber().equals(getLayerNumber())) {
-                System.out.println("3");
-                forwardTo(soapMessage, getNextLayerNodeHost(), getNextLayerNodePort());
+                forwardSoapMessage(soapMessage, getNextLayerNodeHost(), getNextLayerNodePort());
             } else if (messageHeader.isUnicast() && !messageHeader.getReceiverLayerNumber().equals(getLayerNumber())) {
-                System.out.println("4");
-                forwardTo(soapMessage, nextRouterNodeHost, nextRouterNodePort);
+                forwardSoapMessage(soapMessage, nextRouterNodeHost, nextRouterNodePort);
             } else {
-                System.out.println("5");
-                forwardTo(soapMessage, getNextLayerNodeHost(), getNextLayerNodePort());
-              //  forwardTo(soapMessage, nextRouterNodeHost, nextRouterNodePort);
+                forwardSoapMessage(soapMessage, getNextLayerNodeHost(), getNextLayerNodePort());
+                forwardSoapMessage(soapMessage, nextRouterNodeHost, nextRouterNodePort);
             }
-        } catch (SOAPException | IOException | JAXBException e) {
-            e.printStackTrace();
+        } catch (SOAPException | JAXBException e) {
             getNodeController().showWarning(e.getMessage());
         }
     }

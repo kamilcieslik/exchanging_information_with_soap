@@ -22,7 +22,8 @@ public class MessageHeader {
     public MessageHeader() {
     }
 
-    public MessageHeader(String senderLayerNumber, String senderNodeName, String receiverLayerNumber, String receiverNodeName, String messageType) {
+    public MessageHeader(String senderLayerNumber, String senderNodeName, String receiverLayerNumber,
+                         String receiverNodeName, String messageType) {
         this.sender = senderLayerNumber + "|" + senderNodeName;
         this.receiverLayerNumber = receiverLayerNumber;
         this.receiverNodeName = receiverNodeName;
@@ -33,40 +34,8 @@ public class MessageHeader {
         return sender;
     }
 
-    public void setSender(String sender) {
-        this.sender = sender;
-    }
-
-    public String getReceiver() {
-        return receiverLayerNumber + "|" + receiverNodeName;
-    }
-
     public String getReceiverLayerNumber() {
         return receiverLayerNumber;
-    }
-
-    public void setReceiverLayerNumber(String receiverLayerNumber) {
-        this.receiverLayerNumber = receiverLayerNumber;
-    }
-
-    public String getReceiverNodeName() {
-        return receiverNodeName;
-    }
-
-    public void setReceiverNodeName(String receiverNodeName) {
-        this.receiverNodeName = receiverNodeName;
-    }
-
-    public String getMessageType() {
-        return messageType;
-    }
-
-    public void setMessageType(String messageType) {
-        this.messageType = messageType;
-    }
-
-    public List<String> getVisitedNodes() {
-        return visitedNodes;
     }
 
     public void setVisitedNodes(List<String> visitedNodes) {
@@ -98,7 +67,8 @@ public class MessageHeader {
     }
 
     public boolean isReceiver(String layerNumber, String nodeName) {
-        return (this.receiverLayerNumber.equals(layerNumber) && this.receiverNodeName.equals(nodeName)) || this.isGlobalBroadcast()
+        return (this.receiverLayerNumber.equals(layerNumber) && this.receiverNodeName.equals(nodeName))
+                || this.isGlobalBroadcast()
                 || this.isLocalBroadcast() && this.receiverLayerNumber.equals(layerNumber);
     }
 

@@ -31,9 +31,7 @@ public class SoapChat extends Application {
             loader.load();
             Parent root = loader.getRoot();
             NodeController nodeController = loader.getController();
-
             getInputParameters(nodeController);
-
             primaryStage.setTitle("Soap Chat");
             primaryStage.getIcons().add(new Image("/image/icon.png"));
             primaryStage.setMinWidth(610);
@@ -53,7 +51,7 @@ public class SoapChat extends Application {
             } else if (routerNode != null)
                 routerNode.stopListening();
         } catch (IOException e) {
-            e.printStackTrace();
+            System.exit(0);
         }
 
         System.exit(0);

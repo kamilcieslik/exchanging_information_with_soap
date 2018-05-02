@@ -42,12 +42,12 @@ public class NodeController implements Initializable {
     @FXML
     private TextArea textAreaNewMessage, textAreaMessages;
 
-    public void setOnlineNodes(Set<OnlineNode> onlineNodes){
+    public void setOnlineNodes(Set<OnlineNode> onlineNodes) {
         SoapChat.onlineNodeObservableList = FXCollections.observableSet(onlineNodes);
         refreshTableView();
     }
 
-    public Set<OnlineNode> getOnlineNodes(){
+    public Set<OnlineNode> getOnlineNodes() {
         return SoapChat.onlineNodeObservableList;
     }
 
@@ -61,11 +61,14 @@ public class NodeController implements Initializable {
 
         node.startListening();
 
-        SoapChat.onlineNodeObservableList.add(new OnlineNode(layerNode.getNodeFullName(), node.getPort(), "L", node.getNextLayerNodeHost(), node.getNextLayerNodePort()));
+        SoapChat.onlineNodeObservableList.add(new OnlineNode(layerNode.getLayerNumber(), layerNode.getNodeName(),
+                node.getPort(), "L", node.getNextLayerNodeHost(), node.getNextLayerNodePort()));
+        refreshTableView();
+
         try {
-            node.sendMessage("1", "R", "global_broadcast", new MessageBody(getOnlineNodes()));
-        } catch (SOAPException | JAXBException e) {
-            e.printStackTrace();
+            node.sendSoapMessage("", "", "global_broadcast",
+                    new MessageBody(getOnlineNodes()));
+        } catch (SOAPException | JAXBException ignored) {
         }
     }
 
@@ -79,12 +82,16 @@ public class NodeController implements Initializable {
 
         node.startListening();
 
-       // SoapChat.onlineNodeObservableList.add(new OnlineNode(routerNode.getNodeFullName(), node.getPort(), "R - " + routerNode.getNextRouterNodeHost() + ":" + routerNode.getNextRouterNodePort(), node.getNextLayerNodeHost(), node.getNextLayerNodePort()));
-     //   try {
-       //     node.sendMessage("1", "A", "unicast", new MessageBody(getOnlineNodes()));
-      //  } catch (SOAPException | JAXBException e) {
-       //     e.printStackTrace();
-      //  }
+        SoapChat.onlineNodeObservableList.add(new OnlineNode(routerNode.getLayerNumber(), routerNode.getNodeName(),
+                node.getPort(), "R - " + routerNode.getNextRouterNodeHost() + ":"
+                + routerNode.getNextRouterNodePort(), node.getNextLayerNodeHost(), node.getNextLayerNodePort()));
+        refreshTableView();
+
+        try {
+            node.sendSoapMessage("", "", "global_broadcast",
+                    new MessageBody(getOnlineNodes()));
+        } catch (SOAPException | JAXBException ignored) {
+        }
     }
 
     public void initialize(URL location, ResourceBundle resources) {
@@ -95,22 +102,54 @@ public class NodeController implements Initializable {
 
     @FXML
     void buttonSendToAllNodes_onAction() {
-
+        try {
+            node.sendSoapMessage("", "", "global_broadcast",
+                    new MessageBody(textAreaNewMessage.getText()));
+            textAreaNewMessage.clear();
+        } catch (SOAPException | JAXBException e) {
+            customMessageBox.showMessageBox(Alert.AlertType.WARNING, "Ostrzeżenie",
+                    "Operacja wysłania wiadomości nie powiodła się.",
+                    "Powód: " + e.getMessage() + ".").showAndWait();
+        }
     }
 
     @FXML
     void buttonSendToGroupOfSelectedNode_onAction() {
-
+        OnlineNode selectedNode = tableViewOnlineNodes.getSelectionModel().getSelectedItem();
+        if (selectedNode != null) {
+            try {
+                node.sendSoapMessage(selectedNode.getLayerNumber(), "", "local_broadcast",
+                        new MessageBody(textAreaNewMessage.getText()));
+                textAreaNewMessage.clear();
+            } catch (SOAPException | JAXBException e) {
+                customMessageBox.showMessageBox(Alert.AlertType.WARNING, "Ostrzeżenie",
+                        "Operacja wysłania wiadomości nie powiodła się.",
+                        "Powód: " + e.getMessage() + ".").showAndWait();
+            }
+        } else
+            customMessageBox.showMessageBox(Alert.AlertType.WARNING, "Ostrzeżenie",
+                    "Operacja wysłania wiadomości warstwy konkretnego węzła nie powiedzie się.",
+                    "Powód: nie zaznaczono węzła.").showAndWait();
     }
 
     @FXML
     void buttonSendToSelectedNode_onAction() {
-        try {
-            node.sendMessage("1", "A", "unicast", new MessageBody(textAreaNewMessage.getText()));
-            textAreaNewMessage.clear();
-        } catch (SOAPException | JAXBException e) {
-            e.printStackTrace();
-        }
+        OnlineNode selectedNode = tableViewOnlineNodes.getSelectionModel().getSelectedItem();
+        if (selectedNode != null) {
+            try {
+                System.out.println("SIEMA: " + selectedNode.getLayerNumber());
+                node.sendSoapMessage(selectedNode.getLayerNumber(), selectedNode.getNodeName(), "unicast",
+                        new MessageBody(textAreaNewMessage.getText()));
+                textAreaNewMessage.clear();
+            } catch (SOAPException | JAXBException e) {
+                customMessageBox.showMessageBox(Alert.AlertType.WARNING, "Ostrzeżenie",
+                        "Operacja wysłania wiadomości nie powiodła się.",
+                        "Powód: " + e.getMessage() + ".").showAndWait();
+            }
+        } else
+            customMessageBox.showMessageBox(Alert.AlertType.WARNING, "Ostrzeżenie",
+                    "Operacja wysłania wiadomości do konkretnego węzła nie powiedzie się.",
+                    "Powód: nie zaznaczono węzła.").showAndWait();
     }
 
     private void initTableView() {
@@ -120,11 +159,13 @@ public class NodeController implements Initializable {
         tableColumnNextHost.setCellValueFactory(new PropertyValueFactory<>("nextHost"));
         tableColumnNextPort.setCellValueFactory(new PropertyValueFactory<>("nextPort"));
 
-        tableViewOnlineNodes.setItems(FXCollections.observableArrayList(new ArrayList<>(SoapChat.onlineNodeObservableList)));
+        tableViewOnlineNodes
+                .setItems(FXCollections.observableArrayList(new ArrayList<>(SoapChat.onlineNodeObservableList)));
     }
 
-    private void refreshTableView(){
-        tableViewOnlineNodes.setItems(FXCollections.observableArrayList(new ArrayList<>(SoapChat.onlineNodeObservableList)));
+    private void refreshTableView() {
+        tableViewOnlineNodes
+                .setItems(FXCollections.observableArrayList(new ArrayList<>(SoapChat.onlineNodeObservableList)));
     }
 
     public void showReceivedMessage(String sender, String message) {
